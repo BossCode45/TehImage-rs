@@ -5,6 +5,7 @@ mod reader;
 mod image;
 mod bmp;
 mod writer;
+mod byte_encode;
 
 fn main() {
 	let file = File::open("smiley.bmp").expect("File does not exist");
