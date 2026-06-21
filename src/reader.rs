@@ -1,11 +1,11 @@
 use std::{fs::File, io::{BufReader, Read}};
 
-pub struct FileReader<const BUFF_SIZE: usize = 1024>
+pub struct FileReader
 {
 	buf_reader: BufReader<File>
 }
 
-impl<const BUFF_SIZE: usize> FileReader<BUFF_SIZE> {
+impl FileReader {
     pub fn new(buf_reader: BufReader<File>) -> Self
 	{
         Self
@@ -23,7 +23,7 @@ impl<const BUFF_SIZE: usize> FileReader<BUFF_SIZE> {
 		std::array::from_fn(|_| self.read())
 	}
 
-	pub fn read<const N: usize, T: FromBytes<N> + Sized>(&mut self) -> T
+	pub fn read<const N: usize, T: FromBytes<N>>(&mut self) -> T
 	{
 		let mut data = [0u8; N];
 		self.buf_reader.read_exact(&mut data).expect("Bad read");
@@ -31,7 +31,7 @@ impl<const BUFF_SIZE: usize> FileReader<BUFF_SIZE> {
 	}
 }
 
-pub trait FromBytes<const N: usize>: Sized
+pub trait FromBytes<const N: usize>: Sized + Copy
 {
 	fn from_le_bytes(buffer: &[u8; N]) -> Self;
 }
