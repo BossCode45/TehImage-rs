@@ -1,8 +1,8 @@
-use crate::{image::{ColorType, Image, ImageBase, PixelArr, RGB}, reader::FileReader, writer::FileWriter};
+use crate::{image::{ColorType, Image, ImageBase, PixelArr, RGB, RGBA}, reader::FileReader, writer::FileWriter};
 
-impl Image for BMPImage
+impl<T: ColorType> Image<T> for BMPImage
 {
-	fn read_image(reader: &mut FileReader) -> Result<ImageBase, &'static str>
+	fn read_image(reader: &mut FileReader) -> Result<ImageBase<T>, &'static str>
 	{
 		let magic: [u8; 2] = reader.read_array();
 		if magic != [0x42, 0x4d]
@@ -18,13 +18,16 @@ impl Image for BMPImage
 
 		// println!("File header: {file_size} {offset} {header_size}");
 
+		let width: u32;
+		let height: u32;
+		let bpp: u8;
+
 		if header_size == 40
 		{
-
-			let width: u32 = reader.read();
-			let height: u32 = reader.read();
+			width = reader.read();
+			height = reader.read();
 			let _color_planes: u16 = reader.read();
-			let bpp = reader.read::<2, u16>() as u8;
+			bpp = reader.read::<2, u16>() as u8;
 			let compression_method: u32 = reader.read();
 			let _image_size: u32 = reader.read();
 			let _horr_res: u32 = reader.read();
@@ -32,44 +35,53 @@ impl Image for BMPImage
 			let _color_count: u32 = reader.read();
 			let _impotant_color_count: u32 = reader.read();
 
-			if
-				bpp != 24
-				|| compression_method != 0
+			if compression_method != 0
 			{
-				return Err("bpp or compresssion method not supported")
+				return Err("Compresssion method not supported");
 			}
-
-			let row_size = (((bpp as u32) * width + 31)/32) * 4;
-			let skip: usize = (row_size - width * 3) as usize;
-			let mut pixel_arr = PixelArr::new(width, height);
-			for y in (0..height).rev()
-			{
-				for x in 0..width
-				{
-					let mut pixel = RGB::DEFAULT;
-					pixel.b = reader.read();
-					pixel.g = reader.read();
-					pixel.r = reader.read();
-					pixel_arr[(x as usize, y as usize)] = pixel;
-				}
-				reader.skip(skip);
-			}
-
-			return Ok(ImageBase
-					  {
-						  bit_depth: bpp,
-						  pixels: pixel_arr,
-					  })
+		}
+		else if header_size == 12
+		{
+			width = reader.read::<2, u16>() as u32;
+			height = reader.read::<2, u16>() as u32;
+			let _color_planes: u16 = reader.read();
+			bpp = reader.read::<2, u16>() as u8;
 		}
 		else
 		{
 			return Err("Header size not supported yet");
 		}
-		
-		
+
+		if bpp != 24
+		{
+			return Err("Only bpp of 24 is supported so far");
+		}
+
+		let row_size = (((bpp as u32) * width + 31)/32) * 4;
+		let skip: usize = (row_size - width * 3) as usize;
+		let mut pixel_arr = PixelArr::new(width, height);
+		for y in (0..height).rev()
+		{
+			for x in 0..width
+			{
+				let mut pixel = RGBA::<u8>::DEFAULT;
+				pixel.b = reader.read();
+				pixel.g = reader.read();
+				pixel.r = reader.read();
+				pixel.a = 255;
+				pixel_arr[(x as usize, y as usize)] = pixel.convert();
+			}
+			reader.skip(skip);
+		}
+
+		return Ok(ImageBase
+				  {
+					  bit_depth: bpp,
+					  pixels: pixel_arr,
+				  })
 	}
 
-	fn write_image(image: &ImageBase, writer: &mut FileWriter) -> () {
+	fn write_image(image: &ImageBase<T>, writer: &mut FileWriter) -> () {
 		writer.write_array([0x42, 0x4d] as [u8; 2]);
 
 		let row_size = (((24) * image.pixels.width + 31)/32) * 4;
@@ -90,7 +102,7 @@ impl Image for BMPImage
 		{
 			for x in 0..image.pixels.width
 			{
-				let pixel = image.pixels[(x as usize, y as usize)];
+				let pixel: RGB<u8> = image.pixels[(x as usize, y as usize)].clone().convert();
 				writer.write(pixel.b);
 				writer.write(pixel.g);
 				writer.write(pixel.r);

@@ -2,6 +2,11 @@ pub trait ByteEncode<const N: usize>: Sized + Copy
 {
 	fn from_le_bytes(buffer: &[u8; N]) -> Self;
 	fn to_le_bytes(&self) -> [u8; N];
+
+	// fn from_be_bytes(buffer: &[u8; N]) -> Self
+	// {
+	// 	Self::from_le_bytes(buffer.reversed())
+	// }
 }
 
 impl ByteEncode<4> for u32
