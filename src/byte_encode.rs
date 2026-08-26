@@ -1,12 +1,20 @@
-pub trait ByteEncode<const N: usize>: Sized + Copy
+pub trait ByteEncode<const N: usize>: Sized + Clone
 {
 	fn from_le_bytes(buffer: &[u8; N]) -> Self;
 	fn to_le_bytes(&self) -> [u8; N];
+	const SIZE: usize = N;
 
-	// fn from_be_bytes(buffer: &[u8; N]) -> Self
-	// {
-	// 	Self::from_le_bytes(buffer.reversed())
-	// }
+	fn from_be_bytes(buffer: &mut [u8; N]) -> Self
+	{
+		buffer.reverse();
+		Self::from_le_bytes(buffer)
+	}
+	fn to_be_bytes(&self) -> [u8; N]
+	{
+		let mut buffer = Self::to_le_bytes(self);
+		buffer.reverse();
+		buffer
+	}
 }
 
 impl ByteEncode<4> for u32
@@ -18,6 +26,15 @@ impl ByteEncode<4> for u32
         u32::to_le_bytes(*self)
     }
 }
+// impl ByteEncode<4> for usize
+// {
+// 	fn from_le_bytes(buffer: &[u8; 4]) -> Self {
+// 		u32::from_le_bytes(*buffer) as usize
+//     }
+//     fn to_le_bytes(&self) -> [u8; 4] {
+//         u32::to_le_bytes(*self as u32)
+//     }
+// }
 impl ByteEncode<2> for u16
 {
     fn from_le_bytes(buffer: &[u8; 2]) -> Self {

@@ -131,12 +131,12 @@ impl<T: ColorType> ops::IndexMut<(usize, usize)> for PixelArr<T>
 #[derive(Debug)]
 pub struct ImageBase<T: ColorType>
 {
-	pub bit_depth: u8,
+	pub bpp: u8,
 	pub pixels: PixelArr<T>
 }
 
 pub trait Image<T: ColorType>
 {
-	fn read_image(reader: &mut FileReader) -> Result<ImageBase<T>, &'static str>;
+	fn read_image(reader: &mut FileReader) -> Result<ImageBase<T>, String>;
 	fn write_image(image: &ImageBase<T>, writer: &mut FileWriter)-> ();
 }

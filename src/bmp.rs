@@ -1,13 +1,53 @@
-use crate::{image::{ColorType, Image, ImageBase, PixelArr, RGB, RGBA}, reader::FileReader, writer::FileWriter};
+use crate::{byte_encode::ByteEncode, image::{ColorType, Image, ImageBase, PixelArr, RGB, RGBA}, reader::FileReader, writer::FileWriter};
+
+// extern crate byte_encode_derive;
+use byte_encode_derive::ByteEncode;
+
+
+trait BitmapHeader
+{
+	fn get_width(&self) -> u32;
+	fn get_height(&self) -> u32;
+	fn get_bpp(&self) -> u8;
+}
+
+#[derive(Clone, ByteEncode)]
+struct BITMAPINFOHEADER
+{
+	width: u32,
+	height: u32,
+	_color_planes: u16,
+	bpp: u16,
+	compression_method: u32,
+	_image_size: u32,
+	_horr_res: u32,
+	_vert_res: u32,
+	_palette_size: u32,
+	_important_colors: u32
+}
+
+impl BitmapHeader for BITMAPINFOHEADER
+{
+    fn get_width(&self) -> u32 {
+        self.width
+    }
+    fn get_height(&self) -> u32 {
+        self.height
+    }
+    fn get_bpp(&self) -> u8 {
+        self.bpp as u8
+    }
+}
+
 
 impl<T: ColorType> Image<T> for BMPImage
 {
-	fn read_image(reader: &mut FileReader) -> Result<ImageBase<T>, &'static str>
+	fn read_image(reader: &mut FileReader) -> Result<ImageBase<T>, String>
 	{
 		let magic: [u8; 2] = reader.read_array();
 		if magic != [0x42, 0x4d]
 		{
-			return Err("Not a bitmap!");
+			return Err("Not a bitmap!".to_owned());
 		}
 		
 		let _file_size: u32 = reader.read();
@@ -22,39 +62,34 @@ impl<T: ColorType> Image<T> for BMPImage
 		let height: u32;
 		let bpp: u8;
 
-		if header_size == 40
-		{
-			width = reader.read();
-			height = reader.read();
-			let _color_planes: u16 = reader.read();
-			bpp = reader.read::<2, u16>() as u8;
-			let compression_method: u32 = reader.read();
-			let _image_size: u32 = reader.read();
-			let _horr_res: u32 = reader.read();
-			let _vert_res: u32 = reader.read();
-			let _color_count: u32 = reader.read();
-			let _impotant_color_count: u32 = reader.read();
-
-			if compression_method != 0
-			{
-				return Err("Compresssion method not supported");
-			}
-		}
-		else if header_size == 12
+		
+		if header_size == 12 // BITMAPCOREHEADER
 		{
 			width = reader.read::<2, u16>() as u32;
 			height = reader.read::<2, u16>() as u32;
 			let _color_planes: u16 = reader.read();
 			bpp = reader.read::<2, u16>() as u8;
 		}
+		else if header_size == 40 // BITMAPINFOHEADER
+		{
+			let header: BITMAPINFOHEADER = reader.read();
+			width = header.get_width();
+			height = header.get_height();
+			bpp = header.get_bpp();
+
+			if header.compression_method != 0
+			{
+				return Err(format!("Bitmap compresssion method {0} not supported", header.compression_method));
+			}
+		}
 		else
 		{
-			return Err("Header size not supported yet");
+			return Err(format!("Bitmap header size {header_size} not supported yet"));
 		}
 
 		if bpp != 24
 		{
-			return Err("Only bpp of 24 is supported so far");
+			return Err(format!("bpp {bpp} not supported yet, only 24 is supported"));
 		}
 
 		let row_size = (((bpp as u32) * width + 31)/32) * 4;
@@ -76,7 +111,7 @@ impl<T: ColorType> Image<T> for BMPImage
 
 		return Ok(ImageBase
 				  {
-					  bit_depth: bpp,
+					  bpp,
 					  pixels: pixel_arr,
 				  })
 	}
