@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 byte_encode_derive = { version = "0.1.0", path = "byte_encode_derive" }
+zlib-rs = "0.6.7"

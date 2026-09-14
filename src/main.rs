@@ -9,6 +9,7 @@ mod byte_encode;
 mod png;
 mod crc;
 mod zlib;
+mod pipeline;
 
 fn main() {
 	let args: Vec<String> = env::args().collect();

@@ -78,7 +78,6 @@ impl FileReader {
 		self.checksum_func = Some(checksum_func);
 		self.checksum_start = checksum_start;
 		self.curr_checksum = checksum_start;
-		
 	}
 
 	pub fn reset_checksum(&mut self) -> u32

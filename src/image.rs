@@ -115,8 +115,7 @@ impl<T: ColorType> ops::Index<(usize, usize)> for PixelArr<T>
 {
 	type Output = T;
 	
-    fn index(&self, index: (usize, usize)) -> &Self::Output {
-		let (x, y) = index;
+    fn index(&self, (x, y): (usize, usize)) -> &Self::Output {
 		&self.raw[x + y*(self.width as usize)]
     }
 }
