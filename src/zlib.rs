@@ -20,11 +20,11 @@ const DIST_EXTRA: [usize; 30] = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6,
 const DYNAMIC_CODE_START: [usize; 3] = [3, 3, 11];
 const DYNAMIC_CODE_EXTRA: [usize; 3] = [2, 3, 7];
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct HuffmanTree<const LENGTH: usize>
 {
-	pub len_counts: [u8; MAX_BITS + 1],
-	pub ordered_codes: [u16; LENGTH]
+	len_counts: [u8; MAX_BITS + 1],
+	ordered_codes: [u16; LENGTH]
 }
 
 impl<const LENGTH: usize> HuffmanTree<LENGTH>
@@ -76,18 +76,20 @@ impl<const LENGTH: usize> HuffmanTree<LENGTH>
 
 	fn decode<T: Bitstream>(&self, bitstream: &mut T) -> u16
 	{
-		let mut code: i16 = 0;
+		let mut code: u16 = 0;
 		let mut first: u16 = 0;
 		let mut index: usize = 0;
 		
-		for len in 1..MAX_BITS
+		for len in 1..(MAX_BITS + 1)
 		{
-			code |= bitstream.next_bit() as i16;
-			let count: i16 = self.len_counts[len] as i16;
-			// println!("{code} {count}");
-			if code - count < first as i16
+			code |= bitstream.next_bit() as u16;
+			let count: u16 = self.len_counts[len] as u16;
+			// println!("{code} {count} {len}");
+			// let a = self.len_counts;
+			// println!("{a:?}");
+			if count > code || code - count < first as u16
 			{
-				return self.ordered_codes[index + ((code - first as i16) as usize)];
+				return self.ordered_codes[index + ((code - first) as usize)];
 			}
 			index += count as usize;
 			first += count as u16;
@@ -218,7 +220,7 @@ pub fn zlib_decode<T: Bitstream>(mut instream: T) -> Vec<u8>
 		final_chunk = instream.next_bit();
 		let compression_type = CompressionType::new(instream.next_bits(2) as u8);
 		let t = output_buffer.len();
-		println!("New chunk at pos: {t}, compression type: {compression_type:?}");
+		// println!("New chunk at pos: {t}, compression type: {compression_type:?}");
 		if compression_type == CompressionType::Reserved
 		{
 			panic!("Reserved compression type should not be used");
@@ -300,10 +302,14 @@ pub fn zlib_decode<T: Bitstream>(mut instream: T) -> Vec<u8>
 
 				let mut dist_tree_lens = [0u8; DIST_TREE_LEN];
 				dist_tree_lens[0..hdist].copy_from_slice(&code_dist_tree_lens[hlit..(hlit + hdist)]);
+
+				// println!("{code_tree_lens:?}\n{dist_tree_lens:?}");
 				
 				(HuffmanTree::new(code_tree_lens),
 				 HuffmanTree::new(dist_tree_lens))
 			};
+
+			// println!("{code_tree:?}\n{dist_tree:?}");
 			
 
 			let mut code = 0u16;
@@ -323,7 +329,8 @@ pub fn zlib_decode<T: Bitstream>(mut instream: T) -> Vec<u8>
 					let dist = DIST_START[dist_code as usize]
 						+ instream.next_bits(DIST_EXTRA[dist_code as usize]) as usize;
 
-					let out_pos = output_buffer.len() - 1;
+					output_buffer.reserve(len);
+					let out_pos = output_buffer.len();
 					for i in 0..len
 					{
 						output_buffer.push(output_buffer[out_pos - dist + i]);

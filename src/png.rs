@@ -1,7 +1,6 @@
 use std::{any::TypeId, collections::HashMap};
 
 use byte_encode_derive::ByteEncode;
-use zlib_rs::{InflateConfig, decompress_slice};
 
 use crate::{byte_encode::ByteEncode, crc::update_crc, image::{RGB, ColorType, Image, ImageBase, PixelArr}, reader::FileReader, zlib::{BitBuffer, zlib_decode}};
 
@@ -14,24 +13,25 @@ pub struct PNGImage
 	tEXt: Option<tEXt>,
 }
 
-fn paeth_filter(a: u8, b: u8, c: u8) -> u8 {
-	let p = (a as i32 + b as i32 - c as i32) as u8;
-	let pa = p.abs_diff(a);
-	let pb = p.abs_diff(b);
-	let pc = p.abs_diff(c);
+fn paeth_filter(a: &u8, b: &u8, c: &u8) -> u8 {
+	let p = (*a as i32 + *b as i32 - *c as i32) as u8;
+	let pa = p.abs_diff(*a);
+	let pb = p.abs_diff(*b);
+	let pc = p.abs_diff(*c);
 	if pa <= pb && pa <= pc
 	{
-		a
+		*a
 	}
 	else if pb <= pc
 	{
-		b
+		*b
 	}
 	else
 	{
-		c
+		*c
 	}
 }
+#[derive(Debug)]
 enum FilterMethod
 {
 	None,
@@ -52,12 +52,12 @@ impl FilterMethod
 			_ => panic!("Filter {x} is invalid!\nOnly 5 filters exist")
 		}
 	}
-	fn apply(&self, a: u8, b: u8, c: u8, x: u8) -> u8 {
+	fn apply(&self, a: &u8, b: &u8, c: &u8, x: &u8) -> u8 {
 		match self {
-			FilterMethod::None    => x,
-			FilterMethod::Sub     => x.wrapping_add(a),
-			FilterMethod::Up      => x.wrapping_add(b),
-			FilterMethod::Average => x.wrapping_add((a + b)/2),
+			FilterMethod::None    => *x,
+			FilterMethod::Sub     => x.wrapping_add(*a),
+			FilterMethod::Up      => x.wrapping_add(*b),
+			FilterMethod::Average => x.wrapping_add((*a + *b)/2),
 			FilterMethod::Paeth   => x.wrapping_add(paeth_filter(a, b, c)),
 		}
 	}
@@ -295,12 +295,10 @@ impl<T: RGBu8> Image<T> for PNGImage
 		let height: u32 = IHDR.height;
 		println!("{bpp}, {width}, {height}");
 
-		let compression_method: u8 = IDAT.data[0];
-		let additional_flags: u8 = IDAT.data[1];
-
-		let mut decoded = vec![0u8; 1920*(1080*3 + 1)]; // zlib_decode(BitBuffer::new(&IDAT.data[2..]));
-		let (decompressed, rc) = decompress_slice(&mut decoded, &IDAT.data, InflateConfig::default());
-		println!("{rc:?}");
+		let _compression_method: u8 = IDAT.data[0];
+		let _additional_flags: u8 = IDAT.data[1];
+		
+		let decoded = zlib_decode(BitBuffer::new(&IDAT.data[2..]));
 
 		let mut pixels = PixelArr::<T>::new(width, height);
 		let mut rows: Vec<Vec<u8>> = Vec::new();
@@ -308,16 +306,15 @@ impl<T: RGBu8> Image<T> for PNGImage
 		let mut i = 0;
 		for y in 0..(height as usize)
 		{
-			// println!("i: {i}");
 			let filter = FilterMethod::from_byte(decoded[i]);
 			i += 1;
 			let mut row: Vec<u8> = Vec::with_capacity(width as usize * 3);
 			for x in 0..(width as usize * 3)
 			{
-				let a: u8 = if x < 3 { 0 } else { row[x - 3] };
-				let b: u8 = if y < 1 { 0 } else { rows[y - 1][x] };
-				let c: u8 = if y < 1 || x < 3 { 0 } else { rows[y - 1][x - 3] };
-				let x = decoded[i];
+				let a: &u8 = if x < 3 { &0 } else { &row[x - 3] };
+				let b: &u8 = if y < 1 { &0 } else { &rows[y - 1][x] };
+				let c: &u8 = if y < 1 || x < 3 { &0 } else { &rows[y - 1][x - 3] };
+				let x = &decoded[i];
 				i += 1;
 				row.push(filter.apply(a, b, c, x));
 			}
